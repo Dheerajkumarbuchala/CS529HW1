@@ -12,7 +12,8 @@ export default function Whitehat(props){
     var isZoomed = false;
 
     //TODO: change the line below to change the size of the white-hat maximum bubble size
-    const maxRadius = width/100;
+    //const maxRadius = width/100;
+    const maxRadius = width/50;
 
     //albers usa projection puts alaska in the corner
     //this automatically convert latitude and longitude to coordinates on the svg canvas
@@ -38,7 +39,9 @@ export default function Whitehat(props){
             const stateData = props.data.states;
 
             //EDIT THIS TO CHANGE WHAT IS USED TO ENCODE COLOR
-            const getEncodedFeature = d => d.count
+            //const getEncodedFeature = d => d.count
+            const getEncodedFeature = d => d.ids.length
+            //const getEncodedFeature = d => d.population/d.count
 
             //this section of code sets up the colormap
             const stateCounts = Object.values(stateData).map(getEncodedFeature);
@@ -51,11 +54,13 @@ export default function Whitehat(props){
             //so red is bad (p.s. this is not a good color scheme still)
             const stateScale = d3.scaleLinear()
                 .domain([stateMin,stateMax])
-                .range([1,0]);
+                //.range([1,0]);
+                .range([0,1]);
 
             //TODO: EDIT HERE TO CHANGE THE COLOR SCHEME
             //this function takes a number 0-1 and returns a color
-            const colorMap = d3.interpolateRdYlGn;
+            //const colorMap = d3.interpolateRdYlGn;
+            const colorMap = d3.interpolateBlues;
 
             //this set of functions extracts the features given the state name from the geojson
             function getCount(name){
@@ -91,7 +96,7 @@ export default function Whitehat(props){
                 .attr('d',geoGenerator)
                 .attr('fill',getStateColor)
                 .attr('stroke','black')
-                .attr('stroke-width',.1)
+                .attr('stroke-width',1)
                 .on('mouseover',(e,d)=>{
                     let state = cleanString(d.properties.NAME);
                     //this updates the brushed state
@@ -116,23 +121,35 @@ export default function Whitehat(props){
             //draw markers for each city
             const cityData = props.data.cities
             const cityMax = d3.max(cityData.map(d=>d.count));
-            const cityScale = d3.scaleLinear()
+            const cityScale = d3.scaleSqrt()
                 .domain([0,cityMax])
-                .range([0,maxRadius]);
+                .range([0, maxRadius]);
 
             mapGroup.selectAll('.city').remove();
 
             //TODO: Add code for a tooltip when you mouse over the city (hint: use the same code for the state tooltip events .on... and modify what is used for the tTip.html)
             //OPTIONAL: change the color or opacity
+            console.log(cityData);
             mapGroup.selectAll('.city')
                 .data(cityData).enter()
                 .append('circle').attr('class','city')
                 .attr('id',d=>d.key)
                 .attr('cx',d=> projection([d.lng,d.lat])[0])
                 .attr('cy',d=> projection([d.lng,d.lat])[1])
-                .attr('r',d=>cityScale(d.count))
-                .attr('opacity',.5);                
-
+                //.attr('r',d=>cityScale(d.count))
+                .attr('r',d=>(cityScale(d.count)/Math.PI))
+                .attr('fill', 'green')
+                .attr('opacity',1)
+                .on('mouseover', (e,d)=>{
+                    let cname = d.city;
+                    let count = d.ids.length;
+                    let text = cname + '</br>' +
+                        'Gun Deaths : ' + count;
+                    tTip.html(text);
+                }).on('mousemove',(e)=>{
+                    //see app.js for the helper function that makes this easier
+                    props.ToolTip.moveTTipEvent(tTip,e);
+                });
             
             //draw a color legend, automatically scaled based on data extents
             function drawLegend(){
@@ -146,7 +163,7 @@ export default function Whitehat(props){
                 
                 let colorLData = [];
                 //OPTIONAL: EDIT THE VALUES IN THE ARRAY TO CHANGE THE NUMBER OF ITEMS IN THE COLOR LEGEND
-                for(let ratio of [0.1,.2,.3,.4,.5,.6,.7,.8,.9,.99]){
+                for(let ratio of [0.4,.3,.2,.1,.5,.6,.7,.8,.99,.9]){
                     let val = (1-ratio)*stateMin + ratio*stateMax;
                     let scaledVal = stateScale(val);
                     let color = colorMap(scaledVal);
@@ -183,7 +200,7 @@ export default function Whitehat(props){
                     .append('text').attr('class','legendText')
                     .attr('x',d=>d.x+barWidth+5)
                     .attr('y',d=>d.y+barHeight/2 + fontHeight/4)
-                    .attr('font-size',(d,i) => i == 0? 1.2*fontHeight:fontHeight)
+                    .attr('font-size',(d,i) => i === 0? 1.2*fontHeight:fontHeight)
                     .text(d=>d.text);
             }
 
@@ -266,7 +283,17 @@ export default function Whitehat(props){
                 mapGroupSelection.select('#'+props.brushedState)
                     .attr('opacity',1)
                     .attr('strokeWidth',3);
-            }
+                    // .transition()
+                    // .duration(200)
+                    // .attr('transform', 'scale(1.05)');
+            } 
+            // else {
+            //     // Remove the zoom effect when not brushed
+            //     mapGroupSelection.selectAll('.state')
+            //         .transition()
+            //         .duration(200)
+            //         .attr('transform', 'scale(1)'); // Reset to the original scale
+            // }
         }
     },[mapGroupSelection,props.brushedState]);
     
